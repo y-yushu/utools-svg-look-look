@@ -1,0 +1,21 @@
+{
+  "main": "index.html",
+  "logo": "logo.png",
+  "features": [
+    {
+      "code": "svg",
+      "explain": "查看svg",
+      "cmds": [
+        "svg",
+        {
+          "type": "files",
+          "label": "查看svg",
+          "fileType": "file",
+          "match": "/.(svg)$/",
+          "minLength": 1,
+          "maxLength": 999
+        }
+      ]
+    }
+  ]
+}
