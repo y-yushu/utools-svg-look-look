@@ -11,25 +11,42 @@
     <div id="app">
       <div class="left">
         <template v-if="list.length">
-          <div v-for="item in list" :key="item.name" :class="{'cell':true,'isselect':item.isselect}" @click="clickItem(item)">
+          <div v-for="(item,i) in list" :key="item.name" :class="{'cell':true,'isselect':item.isselect}" @click="clickItem(item)">
             <img class="image2" :src="item.path" />
             <span class="span"> {{item.name}} </span>
+            <img class="image3" src="./assets/del.svg" alt="" srcset="" @click="delItem(i)" />
           </div>
         </template>
         <template v-else>
           <div class="prompt">
-            <h1>请复制svg至当前窗口</h1>
+            <h1 class="prompt-title">请复制svg至当前窗口</h1>
+            <h1 v-if="listIsEmpty" class="list-is-empty" style="color: #f56c6c">列表为空</h1>
           </div>
         </template>
       </div>
       <div class="right">
         <h1>{{one.name}}</h1>
         <img class="image1" :src="one.path" />
+        <!-- 右上浮窗 -->
+        <div class="float-top-right" @click="downloadAll()">
+          <img src="./assets/down.svg" alt="" srcset="" />
+        </div>
+        <!-- 右下浮窗 -->
+        <div class="float-bottom-right">
+          <input v-model="size" type="number" />
+          <select v-model="type">
+            <option value="png">png</option>
+            <option value="jpg">jpg</option>
+          </select>
+          <button :disabled="isselect" @click="downloadOne()">下载</button>
+        </div>
       </div>
     </div>
     <script type="text/javascript" src="./bin/vue.min.js"></script>
+    <script type="text/javascript" src="./bin/FileSaver.js"></script>
+    <script type="text/javascript" src="./bin/jszip.js"></script>
     <script>
-      const app = new Vue({
+      new Vue({
         el: '#app',
         data() {
           return {
@@ -37,7 +54,11 @@
             one: {
               name: 'svg-look-look',
               path: './assets/svg.svg'
-            }
+            },
+            isselect: true,
+            size: 32,
+            type: 'png',
+            listIsEmpty: false
           }
         },
         mounted() {
@@ -55,12 +76,97 @@
         },
         methods: {
           clickItem(item) {
+            this.isselect = false
             this.list.forEach(e => (e.isselect = false))
             item.isselect = true
             this.one = {
               name: item.name,
               path: item.path
             }
+          },
+          delItem(i) {
+            this.list.splice(i, 1)
+          },
+          downloadAll() {
+            const list = this.list
+            if (!list.length) {
+              this.listIsEmpty = true
+              setTimeout(() => {
+                this.listIsEmpty = false
+              }, 2000)
+              return
+            }
+            const size = this.size
+            const type = this.type
+            const img = new Image()
+            document.body.appendChild(img)
+            const down = (i, arr) => {
+              const item = list[i]
+              if (item) {
+                const canvas = document.createElement('canvas')
+                canvas.width = size
+                canvas.height = size
+                const context = canvas.getContext('2d')
+                img.src = item.path
+                img.onload = () => {
+                  context.drawImage(img, 0, 0, size, size)
+                  canvas.toBlob(blob => {
+                    arr.push({
+                      ...item,
+                      blob: blob
+                    })
+                    down(i + 1, arr)
+                  })
+                }
+              } else {
+                let zip = new JSZip()
+                const suffix = type === 'png' ? '.png' : '.jpg'
+                arr.forEach(item => {
+                  const name = item.name.slice(0, item.name.length - 4)
+                  zip.file(name + suffix, item.blob)
+                })
+                zip
+                  .generateAsync({
+                    type: 'blob'
+                  })
+                  .then(content => {
+                    document.body.removeChild(img)
+                    window.saveAs(content, 'svg-look-look.zip')
+                  })
+              }
+            }
+            down(0, [])
+          },
+          downloadOne() {
+            const item = this.one
+            if (this.size <= 0) return
+            const canvas = document.createElement('canvas')
+            canvas.width = this.size
+            canvas.height = this.size
+            const context = canvas.getContext('2d')
+            const img = new Image()
+            img.src = item.path
+            img.onload = () => {
+              const types = {
+                png: {
+                  suffix: '.png',
+                  image: 'image/png'
+                },
+                jpg: {
+                  suffix: '.jpg',
+                  image: 'image/jpeg'
+                }
+              }
+              const type = types[this.type]
+              context.drawImage(img, 0, 0, this.size, this.size)
+              const a = document.createElement('a')
+              const name = item.name.slice(0, item.name.length - 4)
+              a.download = name + type.suffix
+              a.href = canvas.toDataURL(type.image, 1)
+              a.click()
+              document.body.removeChild(img)
+            }
+            document.body.appendChild(img)
           }
         }
       })
